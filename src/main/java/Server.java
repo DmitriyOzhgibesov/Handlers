@@ -1,7 +1,13 @@
+import org.apache.http.NameValuePair;
+import org.apache.http.client.utils.URLEncodedUtils;
+
 import java.io.*;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -38,16 +44,23 @@ public class Server {
     private void handleRequest(Socket socket) {
         try (final var in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
              final var out = new BufferedOutputStream(socket.getOutputStream());) {
-
             final var requestLine = in.readLine();
+
             System.out.println(requestLine);
             System.out.println(Thread.currentThread().getName());
-            final var parts = requestLine.split(" ");
 
-            Request request = new Request(parts[0], parts[1], in);
+            final var parts = requestLine.split(" ");
+            var params = getQueryParams("http://localhost:9999/" + parts[1]);
+            String queryPath = parts[1];
+
+            if (parts[1].indexOf('?') != -1) {
+                queryPath = parts[1].substring(0, parts[1].indexOf('?'));
+            }
+
+            Request request = new Request(parts[0], queryPath, in, params);
 
             synchronized (handlers) {
-                Handler handler = handlers.get(request.method).get(request.headers);
+                Handler handler = handlers.get(request.method).get(request.path);
                 handler.handle(request, out);
             }
         } catch (IOException e) {
@@ -62,5 +75,10 @@ public class Server {
                 handlers.put(methodName, innerHandlersMap);
             }
         }
+    }
+
+    private List<NameValuePair> getQueryParams(String query){
+        URI uri = URI.create(query);
+        return URLEncodedUtils.parse(uri, String.valueOf(StandardCharsets.UTF_8));
     }
 }

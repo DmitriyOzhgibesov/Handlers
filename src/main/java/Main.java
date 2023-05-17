@@ -9,15 +9,44 @@ public class Main {
 
         // добавление хендлеров (обработчиков)
         server.addHandler("GET", "/messages", (request, responseStream) -> {
-            // TODO: handlers code
-        });
+            if (!request.queryParams.isEmpty()){
+                String response = String.format("<!DOCTYPE html>\n" +
+                        "<html lang=\"en\">\n" +
+                        "<head>\n" +
+                        "    <meta charset=\"UTF-8\">\n" +
+                        "    <title>Title</title>\n" +
+                        "</head>\n" +
+                        "<body>\n" +
+                        "Your params is:%s\n" +
+                        "</body>\n" +
+                        "</html>", request.queryParams);
 
-        server.addHandler("POST", "/messages", (request, responseStream) -> {
-            // TODO: handlers code
+                responseStream.write((
+                        "HTTP/1.1 200 OK\r\n" +
+                                "Content-Type: " + "text/html" + "\r\n" +
+                                "Content-Length: " + response.getBytes().length + "\r\n" +
+                                "Connection: close\r\n" +
+                                "\r\n"
+                ).getBytes());
+                responseStream.write(response.getBytes());
+                responseStream.flush();
+            } else {
+                final var filePath = Path.of(".", "public", request.path + ".html");
+                final var length = Files.size(filePath);
+                responseStream.write((
+                        "HTTP/1.1 200 OK\r\n" +
+                                "Content-Type: " + "text/html" + "\r\n" +
+                                "Content-Length: " + length + "\r\n" +
+                                "Connection: close\r\n" +
+                                "\r\n"
+                ).getBytes());
+                Files.copy(filePath, responseStream);
+                responseStream.flush();
+            }
         });
 
         server.addHandler("GET", "/index.html", (request, responseStream) -> {
-            final var filePath = Path.of(".", "public", request.headers);
+            final var filePath = Path.of(".", "public", request.path);
             final var mimeType = Files.probeContentType(filePath);
             final var length = Files.size(filePath);
             responseStream.write((
@@ -32,8 +61,11 @@ public class Main {
 
         });
 
+        server.addHandler("GET", "/favicon.ico", (request, responseStream) -> {
+        });
+
         server.addHandler("GET", "/classic.html", (request, responseStream) -> {
-            final var filePath = Path.of(".", "public", request.headers);
+            final var filePath = Path.of(".", "public", request.path);
             final var mimeType = Files.probeContentType(filePath);
             final var template = Files.readString(filePath);
             final var content = template.replace(
